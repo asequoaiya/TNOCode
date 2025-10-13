@@ -162,6 +162,19 @@ class ShearBand:
         trig = np.arctan((-a_1 / a_2) ** 0.5 * a_3)
         thickness = (np.pi + trig) / eta
 
+    def strain_rate_11(self, theta):
+        g = self.material.elastic_shear_modulus()
+
+        fraction = 1 / (6 * g)
+        brackets = 3 * np.power(np.sin(theta), 2) - 1
+
+        value = fraction * brackets
+
+        return value
+
+    def strain_rate_12(self, theta, x2, thickness):
+        return
+
     def thickness(self):
         """
         Based on the theory presented by S. Chen et al., "Prediction of the initial thickness of shear band localization
