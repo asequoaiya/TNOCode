@@ -2,6 +2,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import os
 
 plt.rcParams['font.family'] = 'arial'
 
@@ -209,6 +210,133 @@ def material_calibration_plot():
     plt.show()
 
 
+def alpha_results_loop(function):
+    # Loop through all files in the AlphaResults directory
+    for entry in os.scandir("AlphaResults"):
+        alpha_results_plot(entry.path, str(entry)[16:-6], function)
+
+
+def alpha_results_plot(path, case, function):
+    # Read in .csv data as pandas DataFrame
+    data = pd.read_csv(path, delimiter=";")
+    alpha_dictionary = {"30":3.0, "25":2.5, "20":2.0, "15":1.5, "125":1.25, "10":1.0, "075":0.75, "05":0.5,
+                        "0375":0.375, "025":0.25, "PS":"PS"}
+
+
+    # Extract data
+    time = (data["Time [s]"].dropna()).to_numpy()
+    force = (data["RF Mag [N]"].dropna()).to_numpy()
+
+    sigma = (data["Sigma [MPa]"].dropna()).to_numpy()
+    extension = (data["Extension [-]"].dropna()).to_numpy()
+
+    paper_extension = (data["Paper extension [-]"].dropna()).to_numpy()
+    paper_sigma = (data["Paper Sigma [MPa]"].dropna()).to_numpy()
+
+    if type(alpha_dictionary[case]) == float:
+        moment = (abs(data["RM2 [Nm]"].dropna()).to_numpy())
+        tau = (data["Tau [MPa]"].dropna()).to_numpy()
+        angle = (data["Actual angle [deg]"].dropna()).to_numpy()
+        paper_angle = (data["Paper angle [deg]"].dropna()).to_numpy()
+        paper_tau = (data["Paper Tau [MPa]"].dropna()).to_numpy()
+
+        # Constants
+        base_factor = 45.053
+        loading_factor = base_factor * alpha_dictionary[case]
+
+        # --- Moment-force relation curve ---
+        ideal_y = [0, np.amax(moment) * loading_factor]
+        ideal_x = [0, np.amax(moment)]
+
+        plt.figure(figsize=(8, 5), dpi=150)
+        plt.plot(moment, force, label="ABAQUS")
+        plt.plot(ideal_x, ideal_y, "--", label="Ideal")
+        plt.title(fr"Force-moment relation curve for $\alpha_n$ = {alpha_dictionary[case]}")
+        plt.ylabel("Resultant force [N]")
+        plt.xlabel("Resultant moment [Nm]")
+        plt.ylim(0, 1.1 * np.amax(moment) * loading_factor)
+        plt.xlim(0, 1.1 * np.amax(moment))
+        plt.grid()
+        plt.legend()
+
+        if function == "show":
+            plt.show()
+        elif function == "save":
+            plt.savefig(f"AlphaFigures/MFRelationAlpha{case}.png")
+
+        # --- Loading ratio plot ---
+        loading_ratio = force[2:] / moment[2:]
+        ideal_loading_ratio_x = [0, np.amax(time)]
+        ideal_loading_ratio_y = [loading_factor, loading_factor]
+
+        plt.figure(figsize=(8, 5), dpi=150)
+        plt.plot(time[2:], loading_ratio, label="ABAQUS")
+        plt.plot(ideal_loading_ratio_x, ideal_loading_ratio_y, "--", label="Ideal")
+        plt.title(fr"Loading ratio for $\alpha_n$ = {alpha_dictionary[case]}")
+        plt.ylabel("Loading ratio [m$^{-1}$]")
+        plt.xlabel("ABAQUS time [s]")
+        plt.ylim(0.95 * loading_factor, 1.05 * loading_factor)
+        plt.xlim(0, np.amax(time))
+        plt.grid()
+        plt.legend()
+
+        if function == "show":
+            plt.show()
+        elif function == "save":
+            plt.savefig(f"AlphaFigures/LoadingRatioAlpha{case}.png")
+
+        # --- Nominal shear stress ---
+        plt.figure(figsize=(8, 5), dpi=150)
+        plt.plot(angle, tau, label="ABAQUS")
+        plt.plot(paper_angle, paper_tau, "--", label="Ideal")
+        plt.title(fr"Nominal shear stress for $\alpha_n$ = {alpha_dictionary[case]}")
+        plt.ylabel("Nominal shear stress [MPa]")
+        plt.xlabel("Twist angle [deg]")
+        plt.ylim(0, 1.1 * np.amax(tau))
+        plt.xlim(0, 1.1 * np.amax(angle))
+        plt.grid()
+        plt.legend()
+
+        if function == "show":
+            plt.show()
+        elif function == "save":
+            plt.savefig(f"AlphaFigures/ShearAlpha{case}.png")
+
+    # --- Nominal shear stress ---
+    plt.figure(figsize=(8, 5), dpi=150)
+    plt.plot(extension, sigma, label="ABAQUS")
+    plt.plot(paper_extension, paper_sigma, "--", label="Ideal")
+    plt.title(fr"Nominal normal stress for $\alpha_n$ = {alpha_dictionary[case]}")
+    plt.ylabel("Nominal normal stress [MPa]")
+    plt.xlabel("Extension [-]")
+    plt.ylim(0, 1.1 * np.amax(sigma))
+    plt.xlim(0, 1.1 * np.amax(extension))
+    plt.grid()
+    plt.legend()
+
+    if function == "show":
+        plt.show()
+    elif function == "save":
+        plt.savefig(f"AlphaFigures/NormalAlpha{case}.png")
+
+
+def alpha_relation_plot():
+    alpha_relation_data = pd.read_csv("AlphaRelation.csv", sep=";").to_numpy().transpose()
+    alpha, time, phi_radians, phi_degrees, phi_alpha = alpha_relation_data
+
+    plt.figure(figsize=(8, 5), dpi=150)
+    plt.scatter(alpha, phi_radians, marker="x", label="Exact")
+    plt.scatter(alpha, phi_alpha, marker="+", label="Approximation")
+    plt.title(r"Comparison of principal rotation angle $\varphi$ with and without approximation")
+    plt.ylabel(r"Principal rotation angle $\varphi$ [rad]")
+    plt.xlabel(r"Loading ratio $\alpha_n$ [-]")
+    plt.xlim(0, 1.1 * np.amax(alpha))
+    plt.ylim(0, 1.1 * np.amax((np.amax(phi_radians), np.amax(phi_alpha))))
+    plt.grid()
+    plt.legend()
+    plt.show()
+
+
 # hill_48_normal_plot()
 # hill_48_shear_plot()
-material_calibration_plot()
+alpha_relation_plot()
