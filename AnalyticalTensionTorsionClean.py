@@ -83,7 +83,7 @@ class TensionTorsionSample:
         elif phi_type == "exact":
             phi = self.phi_dictionary[alpha]
 
-        if strain_state_type == "2D" or "2d" or 2:
+        if strain_state_type == "2D" or strain_state_type == "2d" or strain_state_type == 2:
             # All other general strain components
             epsilon_22 = epsilon_23 * ((cos2(phi) - sin2(phi)) / (np.sin(phi) * np.cos(phi)))
 
@@ -98,7 +98,7 @@ class TensionTorsionSample:
 
             return eps, vm_stress, epsilon_1, epsilon_2, epsilon_3
 
-        elif strain_state_type == "3D" or "3d" or 3:
+        elif strain_state_type == "3D" or strain_state_type == "3d" or strain_state_type == 3:
             # All other general strain components
             epsilon_11 = -epsilon_23 * (cos2(phi) - sin2(phi)) / ((1 + 2 * self.eta_r) * np.sin(phi) * np.cos(phi))
             epsilon_22 = -epsilon_11 * (1 + self.eta_r)
@@ -244,10 +244,10 @@ class TensionTorsionSample:
         depsilon_1 = np.diff(epsilon_1)
 
         new_hill_criterion = abs(dsigma_1 / depsilon_1 - (1 + mean_strain_ratio) * sigma_1[1:])
-        print(eps[list(new_hill_criterion).index(np.min(new_hill_criterion))])
+        # print(eps[list(new_hill_criterion).index(np.min(new_hill_criterion))])
 
         # --- WIP --- Stress triaxiality ---
-        mean_stress = sigma_1 + sigma_2 + sigma_3
+        mean_stress = (sigma_1 + sigma_2 + sigma_3) / 3
         stress_triaxiality = mean_stress / vm_stress
         print(sigma_1, sigma_3, stress_triaxiality, alpha)
 
@@ -299,7 +299,7 @@ class TensionTorsionSample:
         plt.title("Comparison of various applied localization criteria")
         plt.legend()
         plt.grid()
-        # plt.show()
+        plt.show()
 
         plt.figure(figsize=(8, 5), dpi=150)
         plt.plot(self.alphas, (force_localization - hill_result) / hill_result * 100, "--",
@@ -313,7 +313,7 @@ class TensionTorsionSample:
         plt.title("Comparison of various applied localization criteria")
         plt.legend()
         plt.grid()
-        # plt.show()
+        plt.show()
 
 
 
