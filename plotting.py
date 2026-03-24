@@ -337,6 +337,33 @@ def alpha_relation_plot():
     plt.show()
 
 
+def strain_ratio_plot():
+    alpha_relation_data = pd.read_csv("StrainRatios.csv", sep=";").to_numpy().transpose()
+
+    used_alphas = [0.25, 0.5, 1.0, 2.0, 3.0]
+    experimental_tris = [0.072, 0.143, 0.260, 0.411, 0.480]
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple"]
+    plt.figure(figsize=(8, 5), dpi=150)
+
+    for n, alpha in enumerate(used_alphas):
+        alpha_time = alpha_relation_data[2 * n]
+        alpha_tri = alpha_relation_data[2 * n + 1]
+        color = colors[n]
+
+        experimental_tri = np.full(np.shape(alpha_time), experimental_tris[n])
+
+        plt.plot(alpha_time, alpha_tri, label=fr"$\alpha$ = {alpha}", color=color)
+        plt.plot(alpha_time, experimental_tri, "--", color=color)
+
+    plt.ylabel(r"Stress triaxiality $\eta$ [-]")
+    plt.xlabel("ABAQUS Time [s]")
+    plt.title("ABAQUS stress triaxiality evolution")
+    plt.ylim(0, 0.55)
+    plt.grid()
+    plt.legend()
+    plt.show()
+
+
 # hill_48_normal_plot()
 # hill_48_shear_plot()
-alpha_relation_plot()
+strain_ratio_plot()
