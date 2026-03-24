@@ -74,7 +74,7 @@ class TensionTorsionSample:
     def solve_strain_state(self, alpha, phi_type, strain_state_type):
         # Array of all possible e23 values
         small_strains = np.linspace(0, 0.01, 51)
-        big_strains = np.linspace(0.01, 2.0, 400)
+        big_strains = np.linspace(0.01, 2.0, 2000)
         epsilon_23 = np.concatenate((small_strains, big_strains[1:]))
 
         phi = None
@@ -127,6 +127,7 @@ class TensionTorsionSample:
         secant_modulus = vm_stress / eps
         secant_modulus[np.isnan(secant_modulus)] = 0
         sigma_1 = secant_modulus * (4 * epsilon_1 + 2 * epsilon_3) / 3
+        sigma_2 = np.zeros(np.shape(sigma_1))
         sigma_3 = -2 * secant_modulus * epsilon_2 - sigma_1
 
         # Solve s23
@@ -138,7 +139,7 @@ class TensionTorsionSample:
         moment = (sigma_23 / self.outer_radius ** self.hardening_n) * geometry_term * 10 ** 6
         force = moment * self.outer_radius * alpha * self.initial_area / self.polar_moment
 
-        return moment, force, eps, sigma_1
+        return moment, force, eps, sigma_1, sigma_2, sigma_3
 
     # Force and moment curves
     def create_figures(self, phi_type, strain_state_type, action="show"):
@@ -152,7 +153,7 @@ class TensionTorsionSample:
 
         # Creates moment-force figures, lops for every possible value of alpha
         for alpha in self.alphas:
-            moment, force, eps, sigma_1 = self.solve_moment_force(alpha, phi_type, strain_state_type)
+            moment, force, eps, sigma_1, sigma_2, sigma_3 = self.solve_moment_force(alpha, phi_type, strain_state_type)
 
             # Retrieve data from .csv files
             filepath = rf"StressStrainCurves/Alpha{self.alphas_text_dictionary[alpha]}.csv"
@@ -238,13 +239,17 @@ class TensionTorsionSample:
         hill_result = eps[closest_value_finder(epsilon_1, hill_major)]
 
         # --- WIP --- Different formulation for Hill ---
-        moment, force, eps, sigma_1 = self.solve_moment_force(alpha, phi_type, strain_state_type)
+        moment, force, eps, sigma_1, sigma_2, sigma_3 = self.solve_moment_force(alpha, phi_type, strain_state_type)
         dsigma_1 = np.diff(sigma_1)
         depsilon_1 = np.diff(epsilon_1)
 
-        new_hill_criterion = abs(dsigma_1 / sigma_1[1:] - (1 + mean_strain_ratio) * depsilon_1)
-        # print(new_hill_criterion)
+        new_hill_criterion = abs(dsigma_1 / depsilon_1 - (1 + mean_strain_ratio) * sigma_1[1:])
         print(eps[list(new_hill_criterion).index(np.min(new_hill_criterion))])
+
+        # --- WIP --- Stress triaxiality ---
+        mean_stress = sigma_1 + sigma_2 + sigma_3
+        stress_triaxiality = mean_stress / vm_stress
+        print(sigma_1, sigma_3, stress_triaxiality, alpha)
 
 
         # --- Numerical section ---
@@ -294,7 +299,7 @@ class TensionTorsionSample:
         plt.title("Comparison of various applied localization criteria")
         plt.legend()
         plt.grid()
-        plt.show()
+        # plt.show()
 
         plt.figure(figsize=(8, 5), dpi=150)
         plt.plot(self.alphas, (force_localization - hill_result) / hill_result * 100, "--",
@@ -308,7 +313,7 @@ class TensionTorsionSample:
         plt.title("Comparison of various applied localization criteria")
         plt.legend()
         plt.grid()
-        plt.show()
+        # plt.show()
 
 
 
