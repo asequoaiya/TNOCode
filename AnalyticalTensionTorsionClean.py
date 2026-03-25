@@ -74,7 +74,7 @@ class TensionTorsionSample:
     def solve_strain_state(self, alpha, phi_type, strain_state_type):
         # Array of all possible e23 values
         small_strains = np.linspace(0, 0.01, 51)
-        big_strains = np.linspace(0.01, 2.0, 2000)
+        big_strains = np.linspace(0.01, 2.0, 4000)
         epsilon_23 = np.concatenate((small_strains, big_strains[1:]))
 
         phi = None
@@ -295,7 +295,7 @@ class TensionTorsionSample:
         plt.plot(self.alphas, force_localization, "--", label="Numerical, Peak load", marker="o")
         plt.plot(self.alphas, moment_localization, "--", label="Numerical, Peak moment", marker="o")
         plt.xlabel(r"Loading ratio $\alpha$")
-        plt.ylabel(r"Equivalent plastic strain $\bar{\varepsilon}$")
+        plt.ylabel(r"PEEQ at localization $\bar{\varepsilon}_{loc}$")
         plt.title("Comparison of various applied localization criteria")
         plt.legend()
         plt.grid()
@@ -309,7 +309,7 @@ class TensionTorsionSample:
         plt.plot(self.alphas, (hill_result - hill_result) / hill_result * 100, "--",
                  label=f"{strain_state_type} Ana., Hill", marker="o", color="tab:brown")
         plt.xlabel(r"Loading ratio $\alpha$ [-]")
-        plt.ylabel(r"Prediction error in $\bar{\varepsilon}$ [%]")
+        plt.ylabel(r"Prediction error in $\bar{\varepsilon}_{loc}$ [%]")
         plt.title("Comparison of various applied localization criteria")
         plt.legend()
         plt.grid()
