@@ -342,6 +342,8 @@ def strain_ratio_plot():
 
     used_alphas = [0.25, 0.5, 1.0, 2.0, 3.0]
     experimental_tris = [0.072, 0.143, 0.260, 0.411, 0.480]
+    analytical_tris = [0.069, 0.134, 0.248, 0.397, 0.470]
+
     colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple"]
     plt.figure(figsize=(8, 5), dpi=150)
 
@@ -351,9 +353,11 @@ def strain_ratio_plot():
         color = colors[n]
 
         experimental_tri = np.full(np.shape(alpha_time), experimental_tris[n])
+        analytical_tri = np.full(np.shape(alpha_time), analytical_tris[n])
 
         plt.plot(alpha_time, alpha_tri, label=fr"$\alpha$ = {alpha}", color=color)
         plt.plot(alpha_time, experimental_tri, "--", color=color)
+        plt.plot(alpha_time, analytical_tri, "-.", color=color)
 
     plt.ylabel(r"Stress triaxiality $\eta$ [-]")
     plt.xlabel("ABAQUS Time [s]")
