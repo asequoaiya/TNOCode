@@ -249,7 +249,7 @@ class TensionTorsionSample:
         # --- WIP --- Stress triaxiality ---
         mean_stress = (sigma_1 + sigma_2 + sigma_3) / 3
         stress_triaxiality = mean_stress / vm_stress
-        print(sigma_1, sigma_3, stress_triaxiality, alpha)
+        # print(sigma_1, sigma_3, stress_triaxiality, alpha)
 
 
         # --- Numerical section ---
