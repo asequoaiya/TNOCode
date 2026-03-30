@@ -317,8 +317,5 @@ class TensionTorsionSample:
 
 
 
-sample = TensionTorsionSample()
-sample.localization_figures("approximation", "3D")
-plt.close("all")
 
 
