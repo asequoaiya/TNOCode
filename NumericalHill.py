@@ -5,14 +5,14 @@ import math
 import matplotlib.pyplot as plt
 
 # ----- Import class definition -----
-import AnalyticalTensionTorsionClean as attc
+import AnalyticalTensionTorsionClean as Attc
 
 # ----- Class definition -----
-class NumericalHill(attc.TensionTorsionSample):
+class NumericalHill(Attc.TensionTorsionSample):
     def __init__(self):
         super().__init__()
 
-    def hill_prediction(self, alpha):
+    def strain_ratio(self, alpha):
         path = fr"HillData/Alpha{self.alphas_text_dictionary[alpha]}/3Ratio.csv"
         data = pd.read_csv(path)
 
@@ -21,6 +21,32 @@ class NumericalHill(attc.TensionTorsionSample):
         minor_strain = (data["PE2MAX"].values + data["PE2MIN"].values) / 2
         strain_ratio = minor_strain / major_strain
 
+        return peeq, strain_ratio
+
+    def non_proportionality(self):
+
+        plt.figure(figsize=(8, 5), dpi=150)
+        for alpha in self.alphas:
+            peeq, strain_ratio = self.strain_ratio(alpha)
+            triaxiality = (1 + strain_ratio) / (3 ** 0.5 * (1 + strain_ratio + strain_ratio ** 2) ** 0.5)
+            plt.plot(triaxiality, peeq, label=fr"$\alpha$ = {alpha}")
+            plt.xlabel(r"Stress triaxiality $\eta$ [-]")
+            plt.ylabel(r"Equivalent plastic strain $\bar{\varepsilon}_p$ [-]")
+            plt.title("Non-proportionality of loading")
+            plt.grid()
+
+        plt.legend()
+        plt.grid()
+        plt.show()
+
+
+
+
+
+
+
+    def hill_prediction(self, alpha):
+        peeq, strain_ratio = self.strain_ratio(alpha)
         peeq_increments = np.diff(peeq)
 
         failure_indicator = 0
@@ -59,11 +85,27 @@ class NumericalHill(attc.TensionTorsionSample):
         plt.plot(self.alphas, swift_result, label=f"{strain_state_type} Ana., Swift")
         plt.plot(self.alphas, hill_result, "--", label=f"{strain_state_type} Ana., Hill", marker="o")
         plt.plot(self.alphas, considere_numerical, label="Axisym., Considère")
-        plt.plot(self.alphas, force_localization, "--", label="Axisym., Peak load", marker="o")
-        plt.plot(self.alphas, moment_localization, "--", label="Axisym., Peak moment", marker="o")
-        plt.plot(self.alphas, shell_hill, label=f"Shells, Hill", marker="o")
+        plt.plot(self.alphas, force_localization, "--", label="Axisym., Peak load", marker="x")
+        plt.plot(self.alphas, moment_localization, "--", label="Axisym., Peak moment", marker="x")
+        plt.plot(self.alphas, shell_hill, label=f"Shells, Hill", marker="x")
         plt.xlabel(r"Loading ratio $\alpha$")
         plt.ylabel(r"PEEQ at localization $\bar{\varepsilon}_{loc}$")
+        plt.title("Comparison of various applied localization criteria")
+        plt.legend()
+        plt.grid()
+        plt.show()
+
+        plt.figure(figsize=(8, 5), dpi=150)
+        plt.plot(self.alphas, (force_localization - hill_result) / hill_result * 100, "--",
+                 label="Axisym., Peak load", marker="o", color="tab:green")
+        plt.plot(self.alphas, (moment_localization - hill_result) / hill_result * 100, "--",
+                 label="Axisym., Peak moment", marker="o", color="tab:red")
+        plt.plot(self.alphas, (hill_result - hill_result) / hill_result * 100, "--",
+                 label=f"{strain_state_type} Ana., Hill", marker="o", color="tab:brown")
+        plt.plot(self.alphas, (shell_hill - hill_result) / hill_result * 100, "--",
+                 label="Shells, Hill", marker="o", color="tab:pink")
+        plt.xlabel(r"Loading ratio $\alpha$ [-]")
+        plt.ylabel(r"Prediction error in $\bar{\varepsilon}_{loc}$ [%]")
         plt.title("Comparison of various applied localization criteria")
         plt.legend()
         plt.grid()
@@ -76,4 +118,4 @@ class NumericalHill(attc.TensionTorsionSample):
 
 
 hill = NumericalHill()
-hill.hill_comparison("approximation", "3D")
+hill.non_proportionality()
