@@ -11,9 +11,15 @@ import AnalyticalTensionTorsionClean as Attc
 class NumericalHill(Attc.TensionTorsionSample):
     def __init__(self):
         super().__init__()
+        self.shell_sizes = [0.1, 0.3, 1.0, 3.0]
+        self.shell_size_dictionary = {0.1:"01", 0.3: "03", 1.0: "1", 3.0:"3"}
 
-    def strain_ratio(self, alpha):
-        path = fr"HillData/Alpha{self.alphas_text_dictionary[alpha]}/3Ratio.csv"
+    @staticmethod
+    def triaxiality(ratio):
+        return (1 + ratio) / (3 ** 0.5 * (1 + ratio + ratio ** 2) ** 0.5)
+
+    def strain_ratio(self, alpha, shell_size):
+        path = fr"HillData/Alpha{self.alphas_text_dictionary[alpha]}/{self.shell_size_dictionary[shell_size]}Ratio.csv"
         data = pd.read_csv(path)
 
         peeq = (data["PEEQMAX"].values + data["PEEQMIN"].values) / 2
@@ -23,30 +29,38 @@ class NumericalHill(Attc.TensionTorsionSample):
 
         return peeq, strain_ratio
 
-    def non_proportionality(self):
-
+    def non_proportionality(self, shell_size):
+        # Initialize figure
         plt.figure(figsize=(8, 5), dpi=150)
-        for alpha in self.alphas:
-            peeq, strain_ratio = self.strain_ratio(alpha)
-            triaxiality = (1 + strain_ratio) / (3 ** 0.5 * (1 + strain_ratio + strain_ratio ** 2) ** 0.5)
-            plt.plot(triaxiality, peeq, label=fr"$\alpha$ = {alpha}")
-            plt.xlabel(r"Stress triaxiality $\eta$ [-]")
-            plt.ylabel(r"Equivalent plastic strain $\bar{\varepsilon}_p$ [-]")
-            plt.title("Non-proportionality of loading")
-            plt.grid()
 
-        plt.legend()
+        # Plot loading path for each value of alpha
+        for alpha in self.alphas:
+            peeq, strain_ratio = self.strain_ratio(alpha, shell_size)
+            triaxiality = self.triaxiality(strain_ratio)
+
+            plt.plot(triaxiality, peeq, label=fr"$\alpha$ = {alpha}")
+
+            # Plot localization points
+            localization_peeq, localization_indicator, localization_strain_ratio = self.hill_prediction(alpha)
+            localization_triaxiality = self.triaxiality(localization_strain_ratio)
+            plt.scatter(localization_triaxiality, localization_peeq, marker="o")
+
+        # Plot Hill prediction path
+        hill_alphas = np.linspace(-1, 0, 1001)
+        hill_triaxialities = self.triaxiality(hill_alphas)
+        hill_peeq = self.hardening_n / (1 + hill_alphas)
+
+        plt.plot(hill_triaxialities, hill_peeq, "--", label="Hill prediction", color="black")
+        plt.xlabel(r"Stress triaxiality $\eta$ [-]")
+        plt.ylabel(r"Equivalent plastic strain $\bar{\varepsilon}_p$ [-]")
+        plt.ylim(-0.05, 1.05)
+        plt.title("Non-proportionality of loading")
+        plt.legend(ncol=2)
         plt.grid()
         plt.show()
 
-
-
-
-
-
-
-    def hill_prediction(self, alpha):
-        peeq, strain_ratio = self.strain_ratio(alpha)
+    def hill_prediction(self, alpha, shell_size):
+        peeq, strain_ratio = self.strain_ratio(alpha, shell_size)
         peeq_increments = np.diff(peeq)
 
         failure_indicator = 0
@@ -58,11 +72,11 @@ class NumericalHill(Attc.TensionTorsionSample):
                 failure_indicator += failure_increment
 
             if failure_indicator > 1:
-                return peeq[n], failure_indicator
+                return peeq[n], failure_indicator, strain_ratio[n + 1]
 
         return 0, failure_indicator
 
-    def hill_comparison(self, phi_type, strain_state_type):
+    def hill_comparison(self, phi_type, strain_state_type, shell_size):
         results = np.empty((len(self.alphas), 7))
 
         for (n, alpha) in enumerate(self.alphas):
@@ -70,7 +84,7 @@ class NumericalHill(Attc.TensionTorsionSample):
              hill_result, considere_numerical,
              force_localization, moment_localization) = self.localization_prediction(alpha, phi_type, strain_state_type)
 
-            shell_hill = self.hill_prediction(alpha)[0]
+            shell_hill = self.hill_prediction(alpha, shell_size)[0]
 
             result_vector = (considere_analytical, swift_result, hill_result, considere_numerical,
                              force_localization, moment_localization, shell_hill)
@@ -111,11 +125,33 @@ class NumericalHill(Attc.TensionTorsionSample):
         plt.grid()
         plt.show()
 
+    def shell_convergence(self):
+        # Result list
+        shell_results = []
 
+        # Get shell results for all sizes
+        for size in self.shell_sizes:
+            shell_results.append(self.hill_prediction(1.0, size)[0])
 
+        # Get axisymmetric results (truth)
+        (considere_analytical, swift_result,
+         hill_result, considere_numerical,
+         force_localization, moment_localization) = self.localization_prediction(1.0, "approximation", "3D")
 
-
+        # Plot convergence of shell model and axisymmetric model results
+        plt.figure(figsize=(8, 5), dpi=150)
+        plt.plot(self.shell_sizes, shell_results, marker="o", label="Shell results")
+        plt.scatter(0.05, force_localization, marker="o", label="Axisym. result", color="tab:orange")
+        plt.plot([-1, 10], [hill_result, hill_result], "--", label="3D analytical result", color="tab:green")
+        plt.ylim(0, 1.15 * np.max(shell_results))
+        plt.ylabel(r"PEEQ at localization $\bar{\varepsilon}_{loc}$ [-]")
+        plt.xlabel("Element length over thickness ratio $l_e/t_e$ [-]")
+        plt.xlim(-0.2, 3.2)
+        plt.title(r"Convergence of shell element results from ABAQUS for $\alpha$ = 1.0")
+        plt.legend()
+        plt.grid()
+        plt.show()
 
 
 hill = NumericalHill()
-hill.non_proportionality()
+hill.shell_convergence()
