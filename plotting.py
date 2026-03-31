@@ -368,30 +368,7 @@ def strain_ratio_plot():
     plt.show()
 
 
-def shell_thickness_plot():
-    shell_thickness_data = pd.read_csv("ShellThicknesses.csv", sep=";").to_numpy().transpose()
-    shell_sizes = [0.1, 0.3, 1, 3]
-
-    plt.figure(figsize=(12, 5), dpi=150)
-
-    for (n, size) in enumerate(shell_sizes):
-        length = shell_thickness_data[2 * n]
-        thickness = shell_thickness_data[2 * n + 1] * 1000
-
-        normalized_length = length / np.amax(length[~np.isnan(length)])
-        plt.plot(normalized_length, thickness, label=f"{size}")
-
-    # amomom "Fix this tomorrow: commit the properly discretized data!"
-
-    plt.grid()
-    plt.ylim(0, 1100 * np.amax(shell_thickness_data[1]))
-    plt.xlabel("Normalized height along the specimen [-]")
-    plt.ylabel("Shell thickness [mm]")
-    plt.title("Shell thickness comparison")
-    plt.legend()
-    plt.show()
-
 
 # hill_48_normal_plot()
 # hill_48_shear_plot()
-shell_thickness_plot()
+strain_ratio_plot()
