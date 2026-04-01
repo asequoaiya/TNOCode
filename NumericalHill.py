@@ -223,12 +223,16 @@ class NumericalHill(Attc.TensionTorsionSample):
         shell_thickness_data = pd.read_csv("ShellThicknesses.csv", sep=None).to_numpy().transpose()
 
         plt.figure(figsize=(12, 5), dpi=150)
+
+        # Loop through all possible shell sizes
         for (n, size) in enumerate(self.shell_sizes):
             length = shell_thickness_data[2 * n]
             thickness = shell_thickness_data[2 * n + 1] * 1000
 
+            # Normalize the length coordinate
             normalized_length = length / np.amax(length[~np.isnan(length)])
 
+            # The last shell size (5) is dotted to show that (3) has the same distribution
             if size == self.shell_sizes[-1]:
                 plt.plot(normalized_length, thickness,
                          "--", label=f"Ratio = {self.thickness_ratio[n]:.3f}; {self.element_numbers[n]} elements")
@@ -251,8 +255,104 @@ class NumericalHill(Attc.TensionTorsionSample):
         plt.tight_layout()
         plt.show()
 
+    def get_abaqus_data(self, alpha):
+        # Make ABAQUS path with ductile damage (DD)
+        abaqus_path = fr"HillData/Alpha{self.alphas_text_dictionary[alpha]}/5Ratio_DD.csv"
+        if os.path.isfile(abaqus_path):
+            data = pd.read_csv(abaqus_path, sep=None)
+        else:
+            return None
+
+        # Get PEEQ and DUCTCRT values
+        peeq = data["PEEQ"].values
+        damage = data["DUCTCRT"].values
+
+        # Determine point at which damage becomes unity
+        localization_point = (np.where(damage == 1))[0][0]
+        localization_peeq = peeq[localization_point]
+
+        return localization_peeq
+
+
+    def abaqus_python_comparison(self, phi_type, strain_state_type):
+        # Comparison based on loading parameter alpha
+        (abaqus_results, python_results, fine_results, finer_results, finest_results,
+         axisym_results, used_alphas) = [], [], [], [], [], [], []
+
+        for n, alpha in enumerate(self.alphas):
+            # ABAQUS data
+            abaqus_peeq = self.get_abaqus_data(alpha)
+
+            # Python data
+            python_peeq = self.hill_prediction(alpha, 5)[0]
+
+            # Finer data (2.5 , 1, 0.3)
+            fine_peeq = self.hill_prediction(alpha, 3)[0]
+            finer_peeq = self.hill_prediction(alpha, 1)[0]
+            finest_peeq = self.hill_prediction(alpha, 0.3)[0]
+
+            if abaqus_peeq is None or python_peeq is None:
+                pass
+            else:
+                # Save ABAQUS and Python data
+                abaqus_results.append(abaqus_peeq)
+                python_results.append(python_peeq)
+                fine_results.append(fine_peeq)
+                finer_results.append(finer_peeq)
+                finest_results.append(finest_peeq)
+
+                # Axisymmetric data
+                (considere_analytical, swift_result,
+                 hill_result, considere_numerical,
+                 force_localization, moment_localization) = self.localization_prediction(alpha, phi_type, strain_state_type)
+                axisym_results.append(force_localization)
+                used_alphas.append(alpha)
+
+        # Convert into numpy arrays
+        abaqus_results = np.array(abaqus_results)
+        python_results = np.array(python_results)
+        fine_results = np.array(fine_results)
+        finer_results = np.array(finer_results)
+        finest_results = np.array(finest_results)
+        axisym_results = np.array(axisym_results)
+        used_alphas = np.array(used_alphas)
+
+        # Plot comparison
+        plt.figure(figsize=(8, 5), dpi=150)
+        plt.plot(used_alphas, axisym_results, marker="o", label="Axisym. result")
+        plt.plot(used_alphas, finest_results, "--", label="Shells, ratio 0.3, Python")
+        plt.plot(used_alphas, finer_results, "--", label="Shells, ratio 1.0, Python")
+        plt.plot(used_alphas, fine_results, "--", label="Shells, ratio 2.5, Python")
+        plt.plot(used_alphas, python_results, "--", label="Shells, ratio 5.0, Python")
+        plt.plot(used_alphas, abaqus_results, "--", label="Shells, ratio 5.0, ABAQUS")
+        plt.xlabel(r"Loading ratio $\alpha$ [-]")
+        plt.ylabel(r"PEEQ at localization $\bar{\varepsilon}_{loc}$ [-]")
+        plt.title("Localization prediction for different shell formulations")
+        plt.grid()
+        plt.tight_layout()
+        plt.legend()
+        plt.show()
+
+        # Plot error comparison
+        plt.figure(figsize=(8, 5), dpi=150)
+        plt.plot(used_alphas, (axisym_results - axisym_results) / axisym_results, label="Axisym. result")
+        plt.plot(used_alphas, (finest_results - axisym_results) / axisym_results * 100, "--", marker="o", label="Shells, ratio 0.3, Python")
+        plt.plot(used_alphas, (finer_results - axisym_results) / axisym_results * 100, "--", marker="o", label="Shells, ratio 1.0, Python")
+        plt.plot(used_alphas, (fine_results - axisym_results) / axisym_results * 100, "--", marker="o", label="Shells, ratio 2.5, Python")
+        plt.plot(used_alphas, (python_results - axisym_results) / axisym_results * 100, "--", marker="o", label="Shells, ratio 5.0, Python")
+        plt.plot(used_alphas, (abaqus_results - axisym_results) / axisym_results * 100, "--", marker="o", label="Shells, ratio 5.0, ABAQUS")
+        plt.xlabel(r"Loading ratio $\alpha$ [-]")
+        plt.ylabel(r"Error in PEEQ at localization $\bar{\varepsilon}_{loc}$ [%]")
+        plt.title("Error for different shell formulations compared to axisymmetric solution")
+        plt.grid()
+        plt.tight_layout()
+        plt.legend()
+        plt.show()
+
+
 
 hill = NumericalHill()
-# hill.shell_convergence(3.0)
-hill.non_proportionality(0.3)
+# hill.shell_convergence(0.5)
+# hill.non_proportionality(0.3)
 # hill.shell_thickness_plot()
+hill.abaqus_python_comparison("approximation", "3D")
