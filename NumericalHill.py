@@ -4,6 +4,7 @@ import pandas as pd
 import math
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import os
 
 # ----- Import class definition -----
 import AnalyticalTensionTorsionClean as Attc
@@ -29,9 +30,13 @@ class NumericalHill(Attc.TensionTorsionSample):
         return (1 + ratio) / (3 ** 0.5 * (1 + ratio + ratio ** 2) ** 0.5)
 
     def strain_ratio(self, alpha, shell_size):
-        # Read data from correct .csv file
+        # Read data from correct .csv file, but only if it exists
         path = fr"HillData/Alpha{self.alphas_text_dictionary[alpha]}/{self.shell_size_dictionary[shell_size]}Ratio.csv"
-        data = pd.read_csv(path)
+
+        if os.path.isfile(path):
+            data = pd.read_csv(path, sep=None)
+        else:
+            return None, None
 
         # Average values from bottom and top integration points
         peeq = (data["PEEQMAX"].values + data["PEEQMIN"].values) / 2
@@ -55,18 +60,23 @@ class NumericalHill(Attc.TensionTorsionSample):
 
             # Get PEEQ and calculate stress triaxiality
             peeq, strain_ratio = self.strain_ratio(alpha, shell_size)
-            triaxiality = self.triaxiality(strain_ratio)
-            plt.plot(triaxiality, peeq, label=fr"$\alpha$ = {alpha}", color=color)
 
-            # Plot first nonzero PEEQ and non-nan triaxiality as start point
-            nonzero_peeq = peeq[peeq != 0]
-            nonnan_strain_ratio = strain_ratio[~np.isnan(strain_ratio)]
-            plt.scatter(self.triaxiality(nonnan_strain_ratio[0]), nonzero_peeq[0], marker="x", color=color)
+            # Check if PEEQ or strain ratio is None
+            if peeq is None or strain_ratio is None:
+                pass
+            else:
+                triaxiality = self.triaxiality(strain_ratio)
+                plt.plot(triaxiality, peeq, label=fr"$\alpha$ = {alpha}", color=color)
 
-            # Plot localization points
-            localization_peeq, localization_indicator, localization_strain_ratio = self.hill_prediction(alpha, shell_size)
-            localization_triaxiality = self.triaxiality(localization_strain_ratio)
-            plt.scatter(localization_triaxiality, localization_peeq, marker="o", color=color)
+                # Plot first nonzero PEEQ and non-nan triaxiality as start point
+                nonzero_peeq = peeq[peeq != 0]
+                nonnan_strain_ratio = strain_ratio[~np.isnan(strain_ratio)]
+                plt.scatter(self.triaxiality(nonnan_strain_ratio[0]), nonzero_peeq[0], marker="x", color=color)
+
+                # Plot localization points
+                localization_peeq, localization_indicator, localization_strain_ratio = self.hill_prediction(alpha, shell_size)
+                localization_triaxiality = self.triaxiality(localization_strain_ratio)
+                plt.scatter(localization_triaxiality, localization_peeq, marker="o", color=color)
 
         # Plot Hill prediction path
         hill_alphas = np.linspace(-1, 0, 1001)
@@ -78,7 +88,7 @@ class NumericalHill(Attc.TensionTorsionSample):
         plt.xlabel(r"Stress triaxiality $\eta$ [-]")
         plt.ylabel(r"Equivalent plastic strain $\bar{\varepsilon}_p$ [-]")
         plt.ylim(-0.05, 1.05)
-        plt.title("Non-proportionality of loading, Ratio = 2.500")
+        plt.title(f"Non-proportionality of loading, length/thickness ratio = {self.thickness_ratio[self.shell_sizes.index(shell_size)]:.3f}")
         plt.legend(ncol=2)
         plt.grid()
         plt.tight_layout()
@@ -88,6 +98,10 @@ class NumericalHill(Attc.TensionTorsionSample):
     def hill_prediction(self, alpha, shell_size):
         # Get PEEQ and strain ratio
         peeq, strain_ratio = self.strain_ratio(alpha, shell_size)
+
+        # Check if peeq and strain ratio exist (in case the file doesn't exist)
+        if peeq is None or strain_ratio is None:
+            return None, None
 
         # Calculate PEEQ increments for cumulative use
         peeq_increments = np.diff(peeq)
@@ -170,29 +184,35 @@ class NumericalHill(Attc.TensionTorsionSample):
         plt.tight_layout()
         plt.show()
 
-    def shell_convergence(self):
+    def shell_convergence(self, alpha):
         # Result list
         shell_results = []
+        actual_sizes = []
 
         # Get shell results for all sizes
-        for size in self.shell_sizes:
-            shell_results.append(self.hill_prediction(1.0, size)[0])
+        for n, size in enumerate(self.shell_sizes):
+            result = self.hill_prediction(alpha, size)[0]
+            if result is None:
+                pass
+            else:
+                shell_results.append(result)
+                actual_sizes.append(n)
 
         # Get axisymmetric results (truth)
         (considere_analytical, swift_result,
          hill_result, considere_numerical,
-         force_localization, moment_localization) = self.localization_prediction(1.0, "approximation", "3D")
+         force_localization, moment_localization) = self.localization_prediction(alpha, "approximation", "3D")
 
         # Plot convergence of shell model and axisymmetric model results
         plt.figure(figsize=(8, 5), dpi=150)
-        plt.plot(self.thickness_ratio, shell_results, marker="o", label="Shell results")
+        plt.plot(self.thickness_ratio[actual_sizes], shell_results, marker="o", label="Shell results")
         plt.plot([-1, 10], [hill_result, hill_result], "--", label="3D analytical result", color="black")
         plt.scatter(0.05, force_localization, marker="o", label="Axisym. result", color="tab:red")
-        plt.ylim(0, 1.15 * np.max(shell_results))
+        plt.ylim(0, 1.15 * max(force_localization, hill_result, np.max(shell_results)))
         plt.ylabel(r"PEEQ at localization $\bar{\varepsilon}_{loc}$ [-]")
         plt.xlabel("Element length over thickness ratio $l_e/t_e$ [-]")
         plt.xlim(-0.2, 5.2)
-        plt.title(r"Convergence of shell element results from ABAQUS for $\alpha$ = 1.0")
+        plt.title(fr"Convergence of shell element results from ABAQUS for $\alpha$ = {alpha}")
         plt.legend()
         plt.grid()
         plt.tight_layout()
@@ -200,7 +220,7 @@ class NumericalHill(Attc.TensionTorsionSample):
 
     def shell_thickness_plot(self):
         # Shell thicknesses
-        shell_thickness_data = pd.read_csv("ShellThicknesses.csv", sep=";").to_numpy().transpose()
+        shell_thickness_data = pd.read_csv("ShellThicknesses.csv", sep=None).to_numpy().transpose()
 
         plt.figure(figsize=(12, 5), dpi=150)
         for (n, size) in enumerate(self.shell_sizes):
@@ -217,7 +237,7 @@ class NumericalHill(Attc.TensionTorsionSample):
                          label=f"Ratio = {self.thickness_ratio[n]:.3f}; {self.element_numbers[n]} elements")
 
         # Ideal thickness distribution
-        ideal_thickness_data = pd.read_csv("VariableThickness.csv", sep=";", header=None).to_numpy().transpose()
+        ideal_thickness_data = pd.read_csv("VariableThickness.csv", sep=None, header=None).to_numpy().transpose()
         plt.plot(ideal_thickness_data[2] / np.amax(ideal_thickness_data[2]), ideal_thickness_data[3] * 1000,
                  ":", label="Ideal", color="black")
 
@@ -233,6 +253,6 @@ class NumericalHill(Attc.TensionTorsionSample):
 
 
 hill = NumericalHill()
-hill.shell_convergence()
-# hill.non_proportionality(3)
+# hill.shell_convergence(3.0)
+hill.non_proportionality(0.3)
 # hill.shell_thickness_plot()
