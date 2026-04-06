@@ -315,6 +315,132 @@ class TensionTorsionSample:
         plt.grid()
         plt.show()
 
+    def combined_analytical_numerical_figures(self, phi_type, strain_state_type, action=None):
+        if strain_state_type == "2D":
+            folder = "TwoDimensionalAnalytical"
+        elif strain_state_type == "3D":
+            folder = "ThreeDimensionalAnalytical"
+        else:
+            folder = ""
+
+        fig, axs = plt.subplots(5, 2, figsize=(10, 20), dpi=150)
+        positions = np.arange(10).reshape((5, 2))
+
+        # Creates force figures, lops for every possible value of alpha
+        for (n, alpha) in enumerate(self.alphas):
+            plot_x_position = np.where(positions == n)[0][0]
+            plot_y_position = np.where(positions == n)[1][0]
+
+            moment, force, eps, sigma_1, sigma_2, sigma_3 = self.solve_moment_force(alpha, phi_type, strain_state_type)
+
+            # Retrieve data from .csv files
+            filepath = rf"StressStrainCurves/Alpha{self.alphas_text_dictionary[alpha]}.csv"
+            forcepath = rf"AlphaResults/Alpha{self.alphas_text_dictionary[alpha]}.csv"
+            abq_data = pd.read_csv(filepath, delimiter=";")
+            load_data = pd.read_csv(forcepath, delimiter=";")
+
+            # Extract data
+            abq_force = (load_data["RF Mag [N]"].dropna()).to_numpy()
+            abq_eps = (abq_data["EPS [-]"].dropna()).to_numpy()[:len(abq_force)]
+
+            # Actual localization point (peak force)
+            force_location = find_peak(abq_force)
+            force_x, force_y = abq_eps[force_location], abq_force[force_location]
+
+            axs[plot_x_position, plot_y_position].plot(eps, force / 1000, label="Analytical")
+            axs[plot_x_position, plot_y_position].plot(abq_eps, abq_force / 1000, label="Numerical")
+            axs[plot_x_position, plot_y_position].scatter(force_x, force_y / 1000, color="tab:orange", marker="x", label="Num. localization, force")
+            axs[plot_x_position, plot_y_position].set_xlim(-0.005, 1.1 * force_x)
+            axs[plot_x_position, plot_y_position].grid()
+            axs[plot_x_position, plot_y_position].legend(loc="lower right")
+            axs[plot_x_position, plot_y_position].set_title(fr"$\alpha$ = {alpha}")
+
+        fig.supxlabel(r"Equivalent plastic strain $\bar{\varepsilon}$ [-]")
+        fig.supylabel(r"Resultant force $F$ [kN]")
+        plt.tight_layout()
+
+
+        if action == "save":
+            plt.savefig(fr"{folder}/ForceComparisonCombined.png")
+        else:
+            plt.show()
+
+    def combined_experimental_numerical_figures(self, action=None):
+        fig, axs = plt.subplots(5, 2, figsize=(10, 20), dpi=150)
+        positions = np.arange(10).reshape((5, 2))
+
+        # Creates force figures, lops for every possible value of alpha
+        for (n, alpha) in enumerate(self.alphas):
+            plot_x_position = np.where(positions == n)[0][0]
+            plot_y_position = np.where(positions == n)[1][0]
+
+            # Retrieve data from .csv files
+            path = rf"AlphaResults/Alpha{self.alphas_text_dictionary[alpha]}.csv"
+            data = pd.read_csv(path, sep=None)
+
+            # Normal data
+            sigma = (data["Sigma [MPa]"].dropna()).to_numpy()
+            extension = (data["Extension [-]"].dropna()).to_numpy()
+            paper_extension = (data["Paper extension [-]"].dropna()).to_numpy()
+            paper_sigma = (data["Paper Sigma [MPa]"].dropna()).to_numpy()
+
+            axs[plot_x_position, plot_y_position].plot(paper_extension, paper_sigma, label="Experimental")
+            axs[plot_x_position, plot_y_position].plot(extension, sigma, label="Numerical")
+            axs[plot_x_position, plot_y_position].set_xlim(-0.005, 1.1 * np.amax(extension))
+            axs[plot_x_position, plot_y_position].grid()
+            axs[plot_x_position, plot_y_position].legend(loc="lower right")
+            axs[plot_x_position, plot_y_position].set_title(fr"$\alpha$ = {alpha}")
+
+        # fig.suptitle(r"Nominal normal stress comparison in experimental and numerical results")
+        fig.supxlabel(r"Normalized displacement $\delta/L_g$ [-]")
+        fig.supylabel(r"Nominal normal stress $\Sigma$ [MPa]")
+        plt.tight_layout()
+
+        if action == "save":
+            plt.savefig(fr"AlphaFigures/NormalComparisonCombined.png")
+        else:
+            plt.show()
+
+        plt.close(fig)
+
+        fig, axs = plt.subplots(5, 2, figsize=(10, 20), dpi=150)
+        # Creates force figures, lops for every possible value of alpha
+        for (n, alpha) in enumerate(self.alphas):
+            plot_x_position = np.where(positions == n)[0][0]
+            plot_y_position = np.where(positions == n)[1][0]
+
+            # Retrieve data from .csv files
+            path = rf"AlphaResults/Alpha{self.alphas_text_dictionary[alpha]}.csv"
+            data = pd.read_csv(path, sep=None)
+
+            # Shear data
+            tau = (data["Tau [MPa]"].dropna()).to_numpy()
+            angle = (data["Actual angle [deg]"].dropna()).to_numpy()
+            paper_angle = (data["Paper angle [deg]"].dropna()).to_numpy()
+            paper_tau = (data["Paper Tau [MPa]"].dropna()).to_numpy()
+
+            axs[plot_x_position, plot_y_position].plot(paper_angle, paper_tau, label="Experimental")
+            axs[plot_x_position, plot_y_position].plot(angle, tau, label="Numerical")
+            axs[plot_x_position, plot_y_position].set_xlim(-0.005, 1.1 * np.amax(angle))
+            axs[plot_x_position, plot_y_position].grid()
+            axs[plot_x_position, plot_y_position].legend(loc="lower right")
+            axs[plot_x_position, plot_y_position].set_title(fr"$\alpha$ = {alpha}")
+
+        # fig.suptitle(r"Nominal shear stress comparison in experimental and numerical results")
+        fig.supxlabel(r"Twist angle $\phi$ [deg]")
+        fig.supylabel(r"Nominal shear stress $T$ [MPa]")
+        plt.tight_layout()
+
+        if action == "save":
+            plt.savefig(fr"AlphaFigures/ShearComparisonCombined.png")
+        else:
+            plt.show()
+
+
+
+simple = TensionTorsionSample()
+simple.combined_experimental_numerical_figures(action="save")
+
 
 
 
