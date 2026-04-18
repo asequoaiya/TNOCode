@@ -3,6 +3,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import os
+import matplotlib.colors as mcolors
+
+from textwrap import wrap
+
 
 plt.rcParams['font.family'] = 'arial'
 
@@ -367,8 +371,125 @@ def strain_ratio_plot():
     plt.legend()
     plt.show()
 
+def alpha_10_distributions_plot():
+    distribution_data = pd.read_csv("Alpha10Distributions.csv", sep=None).to_numpy().transpose()
+    experimental_data = pd.read_csv("ExperimentalAlpha10Distributions.csv", sep=None).to_numpy().transpose()
+
+    colors = np.array(list(mcolors.TABLEAU_COLORS.items()))[:, 0]
+    abaqus_position = distribution_data[0]
+
+    fig, axs = plt.subplots(1, 2, figsize=(10, 4), dpi=150)
+
+    for n, row in enumerate(distribution_data[1:]):
+        axs[0].plot(abaqus_position, row, label=f"{2 + n}, numerical", color=colors[n])
+        axs[1].plot(experimental_data[-2 - 2 * n] + 0.6, experimental_data[-1 - 2 * n],
+                       label=f"{2 + n}", color=colors[n])
+
+    axs[0].set_ylim(0, 1.0)
+    axs[0].set_xlim(-1.5, 1.5)
+    axs[0].grid()
+    axs[0].set_title("Numerical result")
+    axs[1].set_ylim(0, 1.0)
+    axs[1].set_xlim(-1.5, 1.5)
+    axs[1].grid()
+    axs[1].set_title("Experimental result")
+
+    fig.supylabel(r"Equivalent plastic strain $\bar{\varepsilon}_p$ [-]")
+    fig.supxlabel(r"Normalized height coordinate $z/t_0$ [-]")
+    plt.legend(ncol=3)
+    plt.tight_layout()
+    plt.show()
+
+
+def localization_comparison():
+    localization_data = pd.read_csv("LocalizationData.csv", sep=None).to_numpy().transpose()
+    alphas, paper_peeq, paper_sigma, abq_peeq, abq_sigma = localization_data
+
+    colors = np.array(list(mcolors.TABLEAU_COLORS.items()))[:, 0]
+    plt.figure(figsize=(8, 4), dpi=150)
+
+    plt.plot(paper_peeq, paper_sigma, "-.", label="Paper", color="black", zorder=1, alpha=0.3)
+    plt.plot(abq_peeq, abq_sigma, label="ABAQUS", color="black", zorder=2, alpha=0.7)
+
+    for n, alpha in enumerate(alphas):
+        plt.plot([paper_peeq[n], abq_peeq[n]], [paper_sigma[n], abq_sigma[n]], "--", label=fr"$\alpha$ = {alpha}", color=colors[n])
+        plt.scatter(paper_peeq[n], paper_sigma[n], color=colors[n], marker="s", zorder=10)
+        plt.scatter(abq_peeq[n], abq_sigma[n], color=colors[n], zorder=10)
+
+    plt.xlabel(r"Normalized extension $\delta/L_g$ [-]")
+    plt.ylabel(r"Nominal normal stress $\Sigma$ [MPa]")
+    plt.title(r"Localization normal stress/normalized extension comparison")
+    plt.legend(ncol=2)
+    plt.grid()
+    plt.ylim(0, 350)
+    plt.show()
+
+
+def korgesaar_non_proportionality():
+    korgesaar_data = pd.read_csv("KorgesaarPath.csv", sep=None).to_numpy().transpose()
+    triax, peeq, triax2, peeq2 = korgesaar_data
+
+    plt.figure(figsize=(5, 5), dpi=150)
+    plt.plot(triax, peeq, marker="^", label="RTCL")
+    plt.plot(triax2, peeq2, marker="^", label="2FS-ex")
+    plt.title("\n".join(wrap("Sample element loading paths in crash simulation (Kõrgesaar, 2019)", 100)))
+    plt.ylabel(r"Equivalent plastic strain $\bar{\varepsilon}_p$ [-]")
+    plt.xlabel(r"Stress triaxiality $\eta$ [-]")
+    plt.legend()
+    plt.grid()
+    plt.tight_layout()
+    plt.show()
+
+
+def pe11_evolution():
+    pe11_data = pd.read_csv("PE11Evolution.csv", sep=None).to_numpy().transpose()
+    time, pe11, sigma1, pe1 = pe11_data
+
+    pe11_diff = np.diff(pe11)
+    time_diff = np.diff(time)
+    pe11_rate = pe11_diff / time_diff
+    sigma1_diff = np.diff(sigma1)
+    pe1_diff = np.diff(pe1)
+    sigma1_rate = sigma1_diff / pe1_diff
+
+    plt.figure(figsize=(10, 5), dpi=150)
+    plt.plot(time[1:], pe11_rate)
+    plt.xlim(0, np.amax(time[1:]))
+    plt.ylim(1.1 * pe11_rate[-1], 0)
+    plt.xlabel("ABAQUS simulation time [s]")
+    plt.ylabel(r"$\dot{\varepsilon}_{11}$ [1/s]")
+    plt.title(r"Evolution of the through-thickness strain rate $\dot{\varepsilon}_{11}$ for $\alpha$ = 0.25")
+    plt.grid()
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(10, 5), dpi=150)
+    plt.plot(time, pe11)
+    plt.xlim(0, np.amax(time[1:]))
+    plt.ylim(1.1 * pe11[-1], 0)
+    plt.xlabel("ABAQUS simulation time [s]")
+    plt.ylabel(r"$\dot{\varepsilon}_{11}$ [1/s]")
+    plt.title(r"Evolution of the through-thickness strain rate $\dot{\varepsilon}_{11}$ for $\alpha$ = 0.25")
+    plt.grid()
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(10, 5), dpi=150)
+    plt.plot(time[1:], sigma1_rate)
+    plt.plot(time, sigma1)
+    plt.xlabel("ABAQUS simulation time [s]")
+    plt.ylim(0, np.max(sigma1))
+    plt.grid()
+    plt.tight_layout()
+    plt.show()
+
+
+
+
+
+
 
 
 # hill_48_normal_plot()
 # hill_48_shear_plot()
-strain_ratio_plot()
+pe11_evolution()
