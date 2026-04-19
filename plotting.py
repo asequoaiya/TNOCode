@@ -396,9 +396,44 @@ def alpha_10_distributions_plot():
 
     fig.supylabel(r"Equivalent plastic strain $\bar{\varepsilon}_p$ [-]")
     fig.supxlabel(r"Normalized height coordinate $z/t_0$ [-]")
-    plt.legend(ncol=3)
+    plt.legend(ncol=2)
     plt.tight_layout()
     plt.show()
+
+    # Station comparison
+    station_data = pd.read_csv("StationData.csv", sep=None).to_numpy().transpose()
+
+    (paper_point_ext, paper_point_sigma, paper_curve_ext, paper_curve_sigma,
+     exp_point_ext, exp_point_sigma, exp_curve_ext, exp_curve_sigma) = station_data
+    marker_list = [2, "", 3, 4, 5, 6, 7, 8, 9]
+
+    fig, axs = plt.subplots(1, 2, figsize=(10, 4), dpi=150)
+    axs[0].scatter(paper_point_ext, paper_point_sigma, marker=".", label="Paper", color=colors[0])
+    axs[0].plot(paper_curve_ext, paper_curve_sigma, label="Paper", color=colors[0])
+    for x, y, text in zip(paper_point_ext, paper_point_sigma, marker_list):
+        axs[0].text(x, y, str(text), ha="center", va="bottom")
+
+    axs[1].scatter(exp_point_ext, exp_point_sigma, marker=".", label="ABAQUS", color=colors[1])
+    axs[1].plot(exp_curve_ext, exp_curve_sigma, label="ABAQUS", color=colors[1])
+    for x, y, text in zip(exp_point_ext, exp_point_sigma, marker_list):
+        plt.text(x, y, str(text), ha="center", va="bottom")
+
+    axs[0].set_ylim(0, 200)
+    axs[0].set_xlim(0, 0.05)
+    axs[0].grid()
+    axs[0].set_title("Paper result")
+    axs[1].set_ylim(0, 200)
+    axs[1].set_xlim(0, 0.07)
+    axs[1].grid()
+    axs[1].set_title("Numerical result")
+
+    fig.supylabel(r"Nominal normal stress $\Sigma$ [MPa]")
+    fig.supxlabel(r"Normalized displacement $\delta/L_g$ [-]")
+    # plt.legend(ncol=2)
+    plt.tight_layout()
+    plt.show()
+
+
 
 
 def localization_comparison():
@@ -468,8 +503,8 @@ def pe11_evolution():
     plt.xlim(0, np.amax(time[1:]))
     plt.ylim(1.1 * pe11[-1], 0)
     plt.xlabel("ABAQUS simulation time [s]")
-    plt.ylabel(r"$\dot{\varepsilon}_{11}$ [1/s]")
-    plt.title(r"Evolution of the through-thickness strain rate $\dot{\varepsilon}_{11}$ for $\alpha$ = 0.25")
+    plt.ylabel(r"$\varepsilon_{11}$ [1/s]")
+    plt.title(r"Evolution of the through-thickness strain $\varepsilon_{11}$ for $\alpha$ = 0.25")
     plt.grid()
     plt.tight_layout()
     plt.show()
@@ -492,4 +527,4 @@ def pe11_evolution():
 
 # hill_48_normal_plot()
 # hill_48_shear_plot()
-pe11_evolution()
+alpha_10_distributions_plot()
